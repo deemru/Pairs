@@ -23,7 +23,8 @@ if( $pairs->getKey( $value ) !== $key ||
 
 ## Requirements
 
-- [PHP](http://php.net) >= 5.6
+- [PHP](http://php.net) >= 5.4
+- [SQLite (PDO)](http://php.net/manual/en/ref.pdo-sqlite.php)
 
 ## Installation
 
