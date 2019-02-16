@@ -144,10 +144,24 @@ class Pairs
         return $this->querySetValue->execute( [ 'value' => $value ] );
     }
 
+    private function executeStatement( $statement, $key, $value, $type, $unset = false )
+    {
+        if( $type === 'j' )
+            $dbvalue = json_encode( $value );
+        else if( $type === 'jz' )
+            $dbvalue = gzdeflate( json_encode( $value ), 9 );
+        else
+            $dbvalue = $value;
+
+        if( false === ( $result = $statement->execute( [ 'key' => $key, 'value' => $dbvalue ] ) ) )
+            return false;
+
+        self::setCache( $key, $value, $unset );
+        return $result;
+    }
+
     public function setKeyValue( $key, $value, $type = false )
     {
-        self::setCache( $key, $value );
-
         if( !isset( $this->querySetKeyValue ) )
         {
             $this->querySetKeyValue = $this->db->prepare( "INSERT OR REPLACE INTO {$this->name}( key, value ) VALUES( :key, :value )" );
@@ -155,23 +169,30 @@ class Pairs
                 return false;
         }
 
-        if( $type === 'j' )
-            $value = json_encode( $value );
-        else if( $type === 'jz' )
-            $value = gzdeflate( json_encode( $value ), 9 );
-
-        return $this->querySetKeyValue->execute( [ 'key' => $key, 'value' => $value ] );
+        return $this->executeStatement( $this->querySetKeyValue, $key, $value, $type );
     }
 
-    private function setCache( $key, $value )
+    public function unsetKeyValue( $key, $value, $type = false )
+    {
+        if( !isset( $this->queryUnsetKeyValue ) )
+        {
+            $this->queryUnsetKeyValue = $this->db->prepare( "DELETE FROM {$this->name} WHERE key = :key AND value = :value" );
+            if( $this->queryUnsetKeyValue === false )
+                return false;
+        }
+
+        return $this->executeStatement( $this->queryUnsetKeyValue, $key, $value, $type, true );
+    }
+
+    private function setCache( $key, $value, $unset = false )
     {
         if( count( $this->cacheByKey ) >= $this->cacheSize )
             $this->resetCache();
 
-        $this->cacheByKey[$key] = $value;
+        $this->cacheByKey[$key] = $unset ? null : $value;
 
         if( isset( $this->cacheByValue ) && !is_array( $value ) && $value !== false )
-            $this->cacheByValue[$value] = $key;
+            $this->cacheByValue[$value] = $unset ? null : $key;
     }
 
     private function resetCache()

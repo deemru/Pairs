@@ -13,6 +13,11 @@ if( $pairs->getKey( $value ) !== $key ||
     $pairs->getValue( $key ) !== $value )
     exit( 1 );
 
+if( !$pairs->unsetKeyValue( $key, $value ) ||
+    $pairs->getKey( $value ) !== false ||
+    $pairs->getValue( $key ) !== false )
+    exit( 1 );
+
 class tester
 {
     private $successful = 0;
