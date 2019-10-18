@@ -66,7 +66,7 @@ class tester
 echo "   TEST: Pairs\n";
 $t = new tester();
 
-for( $iters = 10000; $iters > 100; $iters = (int)( $iters / 2 ) )
+for( $iters = 50000; $iters >= 100; $iters = (int)( $iters / 10 ) )
 {
     $data = [];
     $t->pretest( "fill PHP data ($iters)" );
@@ -81,7 +81,7 @@ for( $iters = 10000; $iters > 100; $iters = (int)( $iters / 2 ) )
     }
 
     $pairs->reset();
-    $t->pretest( "data to Pairs ($iters) (simple)" );
+    $t->pretest( "data to Pairs ($iters) (write) (simple)" );
     {
         foreach( $data as $key => $value )
         {
@@ -89,7 +89,10 @@ for( $iters = 10000; $iters > 100; $iters = (int)( $iters / 2 ) )
             if( $result === false )
                 break;
         }
-
+    }
+    $t->test( $result !== false );
+    $t->pretest( "data to Pairs ($iters) (read)  (simple)" );
+    {
         if( $result !== false )
         foreach( $data as $key => $value )
         {
@@ -116,7 +119,7 @@ for( $iters = 10000; $iters > 100; $iters = (int)( $iters / 2 ) )
     }
 
     $pairs->reset();
-    $t->pretest( "data to Pairs ($iters) (commit)" );
+    $t->pretest( "data to Pairs ($iters) (write) (commit)" );
     {
         $pairs->begin();
         foreach( $data as $key => $value )
@@ -126,7 +129,10 @@ for( $iters = 10000; $iters > 100; $iters = (int)( $iters / 2 ) )
                 break;
         }
         $pairs->commit();
-
+    } 
+    $t->test( $result !== false );
+    $t->pretest( "data to Pairs ($iters) (read)  (commit)" );
+    {
         if( $result !== false )
         foreach( $data as $key => $value )
         {
@@ -153,16 +159,15 @@ for( $iters = 10000; $iters > 100; $iters = (int)( $iters / 2 ) )
     }
 
     $pairs->reset();
-    $t->pretest( "data to Pairs ($iters) (merge)" );
+    $t->pretest( "data to Pairs ($iters) (write) (merge) " );
     {
         $pairs->begin();
-        {
-            $result = $pairs->mergeKeyValues( $data );
-            if( $result === false )
-                break;
-        }        
+        $result = $pairs->mergeKeyValues( $data );      
         $pairs->commit();
-
+    } 
+    $t->test( $result !== false );
+    $t->pretest( "data to Pairs ($iters) (read)  (merge) " );
+    {
         if( $result !== false )
         foreach( $data as $key => $value )
         {
