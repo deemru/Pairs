@@ -80,9 +80,9 @@ for( $iters = 10000; $iters > 100; $iters = (int)( $iters / 2 ) )
         $t->test( count( $data ) === $iters );
     }
 
+    $pairs->reset();
     $t->pretest( "data to Pairs ($iters) (simple)" );
     {
-        $pairs->reset();
         foreach( $data as $key => $value )
         {
             $result = $pairs->setKeyValue( $key, $value );
@@ -115,9 +115,9 @@ for( $iters = 10000; $iters > 100; $iters = (int)( $iters / 2 ) )
         $t->test( $result !== false );
     }
 
+    $pairs->reset();
     $t->pretest( "data to Pairs ($iters) (commit)" );
     {
-        $pairs->reset();
         $pairs->begin();
         foreach( $data as $key => $value )
         {
@@ -125,6 +125,42 @@ for( $iters = 10000; $iters > 100; $iters = (int)( $iters / 2 ) )
             if( $result === false )
                 break;
         }
+        $pairs->commit();
+
+        if( $result !== false )
+        foreach( $data as $key => $value )
+        {
+            $result = $pairs->getKey( $value );
+            if( $result !== $key )
+            {
+                $result = false;
+                break;
+            }
+        }
+
+        if( $result !== false )
+        foreach( $data as $key => $value )
+        {
+            $result = $pairs->getValue( $key );
+            if( $result !== $value )
+            {
+                $result = false;
+                break;
+            }
+        }
+
+        $t->test( $result !== false );
+    }
+
+    $pairs->reset();
+    $t->pretest( "data to Pairs ($iters) (merge)" );
+    {
+        $pairs->begin();
+        {
+            $result = $pairs->mergeKeyValues( $data );
+            if( $result === false )
+                break;
+        }        
         $pairs->commit();
 
         if( $result !== false )

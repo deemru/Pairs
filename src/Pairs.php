@@ -245,8 +245,12 @@ class Pairs
         }
 
         foreach( $kvs as $key => $value )
-            $this->executeStatement( $this->queryKeyValueCache, $key, $value, $type );
-        $this->db->exec( "INSERT OR REPLACE INTO {$this->name} SELECT * FROM cache.{$this->name};" );
+        {
+            if( false === $this->executeStatement( $this->queryKeyValueCache, $key, $value, $type ) )
+                return false;
+        }
+        return
+        $this->db->exec( "INSERT OR REPLACE INTO {$this->name} SELECT * FROM cache.{$this->name};" ) &&
         $this->db->exec( "DELETE FROM cache.{$this->name};" );
     }
 }
