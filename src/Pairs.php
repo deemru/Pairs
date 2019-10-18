@@ -6,15 +6,26 @@ class Pairs
 {
     public function __construct( $db, $name, $writable = false, $type = 'INTEGER PRIMARY KEY|TEXT UNIQUE|0|0', $cacheSize = 1024 )
     {
-        if( is_a( $db, 'PDO' ) )
-        {
-            $this->db = $db;
-        }
-        else
+        if( is_string( $db ) )
         {
             $this->db = new \PDO( "sqlite:$db" );
             $this->db->setAttribute( \PDO::ATTR_ERRMODE, \PDO::ERRMODE_WARNING );
             $this->db->exec( 'PRAGMA temp_store = MEMORY' );
+        }
+        else if( is_a( $db, __CLASS__ ) )
+        {
+            $this->db = $db->db;
+            $this->child = true;
+            $this->parent = $db;
+        }
+        else if( is_a( $db, 'PDO' ) )
+        {
+            $this->db = $db;
+            $this->child = true;
+        }
+        else
+        {
+            throw new Exception( __CLASS__ . ': unsupported db type' );
         }
 
         $this->name = $name;
@@ -24,14 +35,21 @@ class Pairs
         if( $writable )
         {
             $this->db->exec( 'PRAGMA synchronous = NORMAL; PRAGMA journal_mode = WAL; PRAGMA journal_size_limit = 1048576; PRAGMA optimize;' );
-            $type = explode( '|', $type );
-            $this->db->exec( "CREATE TABLE IF NOT EXISTS {$this->name}( key {$type[0]}, value {$type[1]} )" );
-            if( $type[2] )
+            $this->type = explode( '|', $type );
+            $this->db->exec( "CREATE TABLE IF NOT EXISTS {$this->name}( key {$this->type[0]}, value {$this->type[1]} )" );
+            if( $this->type[2] )
                 $this->db->exec( "CREATE INDEX IF NOT EXISTS {$this->name}_key_index ON {$this->name}( key )" );
-            if( $type[3] )
+            if( $this->type[3] )
                 $this->db->exec( "CREATE INDEX IF NOT EXISTS {$this->name}_value_index ON {$this->name}( value )" );
-            if( $type[3] || false !== strpos( $type[1], 'UNIQUE' ) )
+            if( $this->type[3] || false !== strpos( $this->type[1], 'UNIQUE' ) )
                 $this->cacheByValue = [];
+            
+            if( !isset( $this->child ) )
+                $this->db->exec( "ATTACH DATABASE ':memory:' AS cache" );
+
+            $keyType = strpos( $this->type[0], 'INTEGER' ) !== false ? 'INTEGER' : 'BLOB';
+            $valueType = strpos( $this->type[1], 'INTEGER' ) !== false ? 'INTEGER' : 'BLOB';
+            $this->db->exec( "CREATE TABLE cache.{$this->name}( key $keyType, value $valueType )" );
         }
     }
 
@@ -186,6 +204,9 @@ class Pairs
 
     private function setCache( $key, $value, $unset = false )
     {
+        if( $this->cacheSize === 0 )
+            return;
+
         if( count( $this->cacheByKey ) >= $this->cacheSize )
             $this->resetCache();
 
@@ -195,7 +216,7 @@ class Pairs
             $this->cacheByValue[$value] = $unset ? null : $key;
     }
 
-    private function resetCache()
+    public function resetCache()
     {
         $this->cacheByKey = [];
         if( isset( $this->cacheByValue ) && count( $this->cacheByValue ) )
@@ -212,5 +233,20 @@ class Pairs
             return false;
 
         return $query;
+    }
+
+    public function mergeKeyValues( $kvs, $type = false )
+    {
+        if( !isset( $this->queryKeyValueCache ) )
+        {
+            $this->queryKeyValueCache = $this->db->prepare( "INSERT INTO cache.{$this->name}( key, value ) VALUES( :key, :value )" );
+            if( $this->queryKeyValueCache === false )
+                return false;
+        }
+
+        foreach( $kvs as $key => $value )
+            $this->executeStatement( $this->queryKeyValueCache, $key, $value, $type );
+        $this->db->exec( "INSERT OR REPLACE INTO {$this->name} SELECT * FROM cache.{$this->name};" );
+        $this->db->exec( "DELETE FROM cache.{$this->name};" );
     }
 }
