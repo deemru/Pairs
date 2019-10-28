@@ -3,7 +3,7 @@
 require __DIR__ . '/../vendor/autoload.php';
 use deemru\Pairs;
 
-$pairs = new Pairs( __DIR__ . '/storage.sqlite', 'pairs', true );
+$pairs = new Pairs( __DIR__ . '/storage.sqlite', 'pairs', 2 );
 
 $key = 1;
 $value = 'Hello, World!';
