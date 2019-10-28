@@ -4,7 +4,7 @@ namespace deemru;
 
 class Pairs
 {
-    public function __construct( $db, $name, $writable = false, $type = 'INTEGER PRIMARY KEY|TEXT UNIQUE|0|0', $cacheSize = 1024 )
+    public function __construct( $db, $name, $writable = 0, $type = 'INTEGER PRIMARY KEY|TEXT UNIQUE|0|0', $cacheSize = 1024 )
     {
         if( is_string( $db ) )
         {
@@ -43,13 +43,16 @@ class Pairs
                 $this->db->exec( "CREATE INDEX IF NOT EXISTS {$this->name}_value_index ON {$this->name}( value )" );
             if( $this->type[3] || false !== strpos( $this->type[1], 'UNIQUE' ) )
                 $this->cacheByValue = [];
-            
-            if( !isset( $this->child ) )
-                $this->db->exec( "ATTACH DATABASE ':memory:' AS cache" );
 
-            $keyType = strpos( $this->type[0], 'INTEGER' ) !== false ? 'INTEGER' : 'BLOB';
-            $valueType = strpos( $this->type[1], 'INTEGER' ) !== false ? 'INTEGER' : 'BLOB';
-            $this->db->exec( "CREATE TABLE cache.{$this->name}( key $keyType, value $valueType )" );
+            if( $writable > 1 )
+            {
+                if( !isset( $this->child ) )
+                    $this->db->exec( "ATTACH DATABASE ':memory:' AS cache" );
+
+                $keyType = strpos( $this->type[0], 'INTEGER' ) !== false ? 'INTEGER' : 'BLOB';
+                $valueType = strpos( $this->type[1], 'INTEGER' ) !== false ? 'INTEGER' : 'BLOB';
+                $this->db->exec( "CREATE TABLE cache.{$this->name}( key $keyType, value $valueType )" );
+            }
         }
     }
 
