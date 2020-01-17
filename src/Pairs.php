@@ -10,6 +10,8 @@ class Pairs
         {
             $this->db = new \PDO( "sqlite:$db" );
             $this->db->setAttribute( \PDO::ATTR_ERRMODE, \PDO::ERRMODE_WARNING );
+            if( defined( 'PDO_FETCH_NUM' ) )
+                $this->db->setAttribute( \PDO::ATTR_DEFAULT_FETCH_MODE, \PDO::FETCH_NUM );
             $this->db->exec( 'PRAGMA temp_store = MEMORY' );
         }
         else if( is_a( $db, __CLASS__ ) )
@@ -89,7 +91,7 @@ class Pairs
 
         if( !isset( $this->queryKey ) )
         {
-            $this->queryKey = $this->db->prepare( "SELECT key FROM {$this->name} WHERE value = :value" );
+            $this->queryKey = $this->db->prepare( "SELECT key FROM {$this->name} WHERE value = ?" );
             if( $this->queryKey === false )
             {
                 if( $add === false || !self::setValue( $value ) )
@@ -99,12 +101,12 @@ class Pairs
             }
         }
 
-        if( $this->queryKey->execute( [ 'value' => $value ] ) === false )
+        if( $this->queryKey->execute( [ $value ] ) === false )
             return false;
 
-        $key = $this->queryKey->fetchAll( \PDO::FETCH_ASSOC );
+        $key = $this->queryKey->fetchAll();
 
-        if( !isset( $key[0]['key'] ) )
+        if( !isset( $key[0][0] ) )
         {
             if( $add === false || !self::setValue( $value ) )
                 return false;
@@ -112,7 +114,7 @@ class Pairs
             return self::getKey( $value );
         }
 
-        $key = $int ? intval( $key[0]['key'] ) : $key[0]['key'];
+        $key = $int ? intval( $key[0][0] ) : $key[0][0];
         self::setCache( $key, $value );
         return $key;
     }
@@ -124,23 +126,23 @@ class Pairs
 
         if( !isset( $this->queryValue ) )
         {
-            $this->queryValue = $this->db->prepare( "SELECT value FROM {$this->name} WHERE key = :key" );
+            $this->queryValue = $this->db->prepare( "SELECT value FROM {$this->name} WHERE key = ?" );
             if( $this->queryValue === false )
                 return false;
         }
 
-        if( $this->queryValue->execute( [ 'key' => $key ] ) === false )
+        if( $this->queryValue->execute( [ $key ] ) === false )
             return false;
 
-        $value = $this->queryValue->fetchAll( \PDO::FETCH_ASSOC );
+        $value = $this->queryValue->fetchAll();
 
-        if( !isset( $value[0]['value'] ) )
+        if( !isset( $value[0][0] ) )
         {
             self::setCache( $key, false );
             return false;
         }
 
-        $value = $value[0]['value'];
+        $value = $value[0][0];
 
         if( $type === 'i' )
             $value = (int)$value;
@@ -157,12 +159,12 @@ class Pairs
     {
         if( !isset( $this->querySetValue ) )
         {
-            $this->querySetValue = $this->db->prepare( "INSERT INTO {$this->name}( value ) VALUES( :value )" );
+            $this->querySetValue = $this->db->prepare( "INSERT INTO {$this->name}( value ) VALUES( ? )" );
             if( $this->querySetValue === false )
                 return false;
         }
 
-        return $this->querySetValue->execute( [ 'value' => $value ] );
+        return $this->querySetValue->execute( [ $value ] );
     }
 
     private function executeStatement( $statement, $key, $value, $type, $unset = false )
@@ -174,7 +176,7 @@ class Pairs
         else
             $dbvalue = $value;
 
-        if( false === ( $result = $statement->execute( [ 'key' => $key, 'value' => $dbvalue ] ) ) )
+        if( false === ( $result = $statement->execute( [ $key, $dbvalue ] ) ) )
             return false;
 
         self::setCache( $key, $value, $unset );
@@ -242,7 +244,7 @@ class Pairs
     {
         if( !isset( $this->queryKeyValueCache ) )
         {
-            $this->queryKeyValueCache = $this->db->prepare( "INSERT INTO cache.{$this->name}( key, value ) VALUES( :key, :value )" );
+            $this->queryKeyValueCache = $this->db->prepare( "INSERT INTO cache.{$this->name}( key, value ) VALUES( ?, ? )" );
             if( $this->queryKeyValueCache === false )
                 return false;
         }
